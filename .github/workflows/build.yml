@@ -68,6 +68,20 @@ jobs:
             echo "No GOOGLE_SERVICES_JSON secret - building without Firebase plugin"
           fi
 
+      # แสดงโครงสร้างโปรเจกต์ที่ Gradle มองเห็น เพื่อใช้ตรวจสอบเมื่อ build พัง
+      - name: Diagnose project
+        working-directory: ${{ env.PROJECT_DIR }}
+        continue-on-error: true
+        run: |
+          echo "== files =="
+          find . -maxdepth 3 -not -path './.git/*' | sort | head -60
+          echo "== settings.gradle.kts =="
+          cat settings.gradle.kts
+          echo "== app/build.gradle.kts (head) =="
+          head -20 app/build.gradle.kts
+          echo "== gradle projects =="
+          gradle projects --no-daemon --console=plain
+
       - name: Build debug APK
         working-directory: ${{ env.PROJECT_DIR }}
         run: gradle assembleDebug --stacktrace --no-daemon
