@@ -19,10 +19,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # หาโฟลเดอร์ที่มี settings.gradle.kts อัตโนมัติ (รองรับกรณีอัปโหลดโปรเจกต์ไว้ในโฟลเดอร์ย่อย เช่น ESQZcity/)
+      # ถ้าใน repo มีแต่ไฟล์ซิป (ยังไม่แตก) ให้แตกซิปก่อน แล้วหาโฟลเดอร์ที่มี settings.gradle.kts
       - name: Locate project
         run: |
           FILE=$(find . -name settings.gradle.kts -not -path '*/.git/*' | head -n1)
+          if [ -z "$FILE" ] && ls ./*.zip >/dev/null 2>&1; then
+            for z in ./*.zip; do
+              echo "Extracting $z"
+              unzip -q -o "$z" -d ./_project
+            done
+            FILE=$(find ./_project -name settings.gradle.kts | head -n1)
+          fi
           if [ -z "$FILE" ]; then
             echo "::error::settings.gradle.kts not found in repository"
             find . -maxdepth 3 -not -path '*/.git/*' | head -50
