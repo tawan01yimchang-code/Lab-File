@@ -19,29 +19,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # โปรเจกต์ใช้ JDK 17 (compileOptions / jvmTarget = 17, AGP 8.5.2)
+      # หาโฟลเดอร์ที่มี settings.gradle.kts อัตโนมัติ (รองรับกรณีอัปโหลดโปรเจกต์ไว้ในโฟลเดอร์ย่อย เช่น ESQZcity/)
+      - name: Locate project
+        run: |
+          FILE=$(find . -name settings.gradle.kts -not -path '*/.git/*' | head -n1)
+          if [ -z "$FILE" ]; then
+            echo "::error::settings.gradle.kts not found in repository"
+            find . -maxdepth 3 -not -path '*/.git/*' | head -50
+            exit 1
+          fi
+          DIR=$(dirname "$FILE")
+          echo "Project dir: $DIR"
+          echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
+          ls -la "$DIR"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # compileSdk = 34
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
-      # ในโปรเจกต์ไม่มี gradlew / gradle-wrapper.jar จึงติดตั้ง Gradle 8.7
-      # ให้ตรงกับ gradle/wrapper/gradle-wrapper.properties (gradle-8.7-bin)
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      # Firebase จะถูกเปิดใช้เฉพาะเมื่อมี app/google-services.json
-      # (ถ้าต้องการ Cloud Save ให้เก็บเนื้อไฟล์ไว้ใน Secret ชื่อ GOOGLE_SERVICES_JSON)
       - name: Add google-services.json (optional)
+        working-directory: ${{ env.PROJECT_DIR }}
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
@@ -53,11 +62,12 @@ jobs:
           fi
 
       - name: Build debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
         run: gradle assembleDebug --stacktrace --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ESQZcity-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
